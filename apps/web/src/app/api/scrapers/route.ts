@@ -15,6 +15,9 @@ export async function GET() {
     console.error('Scrapers list error:', e.message);
     return NextResponse.json([]);
   }
+}
+
+export async function POST(req: Request) {
   try {
     await ensureSchema();
     const body = await req.json();
@@ -40,11 +43,9 @@ export async function GET() {
 
     await db.insert(scrapers).values(newScraper);
 
-    // Initialize mock selector mapping in simulator memory
     BrightDataService.resetSelectors(scraperId);
     const defaultSelectors = BrightDataService.getSelectors(scraperId);
 
-    // Save initial version 1 to database selector history
     await db.insert(selectorVersions).values({
       id: crypto.randomUUID(),
       scraperId: scraperId,

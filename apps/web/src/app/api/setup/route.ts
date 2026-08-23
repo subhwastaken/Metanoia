@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
-import { INIT_SQL } from '../../../../lib/schema-init';
+import { INIT_SQL } from '../../../lib/schema-init';
 
 export async function POST() {
   try {
@@ -27,7 +27,7 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       message: 'Database schema initialized',
-      tables: tables.map((t: { table_name: string }) => t.table_name),
+      tables: tables.map((t) => String(t.table_name)),
     });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
