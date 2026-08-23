@@ -1,0 +1,13 @@
+{
+  "name": "Regional Electronics Catalog",
+  "target_url": "http://127.0.0.1:8000/demo-site",
+  "collector_id": "c_8f2a91",
+  "auto_heal": true,
+  "schema_definition": {
+    "product_name": "string",
+    "price": "number",
+    "currency": "string",
+    "availability": "string",
+    "product_url": "url"
+  }
+}
