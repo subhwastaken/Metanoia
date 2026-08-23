@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
-import { INIT_SQL } from '../../../lib/schema-init';
+import { INIT_SQL } from '@/lib/schema-init';
 
 export async function POST() {
   try {
