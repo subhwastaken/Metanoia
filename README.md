@@ -16,7 +16,10 @@
 
 *When websites change, your scrapers shouldn't break.*
 
-[Quick Start](#quick-start) · [Architecture](#architecture) · [AI Agent](#ai-job-intelligence-agent) · [API](#api-reference)
+[![Live Demo](https://img.shields.io/badge/Live-demo-22c55e?style=for-the-badge)](https://metanoia-brown-xi.vercel.app)
+[![GitHub](https://img.shields.io/badge/GitHub-subhwastaken-181717?style=for-the-badge&logo=github)](https://github.com/subhwastaken/Metanoia)
+
+[Quick Start](#quick-start) · [Architecture](#architecture) · [AI Agent](#ai-job-intelligence-agent) · [Deploy](#deploy-on-vercel) · [API](#api-reference)
 
 </div>
 
@@ -28,7 +31,12 @@
 
 An **AI Job Intelligence Agent** turns plain-English prompts into live job listings with direct company career page links.
 
-> Built for the **Bright Data Self-Healing Scraper** track.
+### Why Metanoia?
+
+- **Detect before data breaks** — schema contracts catch missing fields, type drift, and count drops
+- **Heal without manual fixes** — Bright Data Scraper Studio repairs selectors and re-validates output
+- **Operate from one console** — registry, runs, healing history, and reliability metrics in a single UI
+- **Ship with confidence** — GitHub Actions cron monitors scrapers and triggers auto-heal in CI
 
 ---
 
@@ -194,11 +202,24 @@ npm run dev
 
 ## Usage
 
-**Register scraper** → Scrapers → target `/demo-site` → define schema → Run Now
+### 1. Register a scraper
 
-**Break & heal** → inject DOM failure in header → run scraper → watch auto-heal
+1. Open **Scrapers** in the console
+2. Set target URL to `/demo-site` (or your own page)
+3. Define the extraction schema (field names + types)
+4. Click **Run Now**
 
-**AI search** → Agent → type plain English → get career pages + job boards
+### 2. Break and heal (demo)
+
+1. Visit `/demo-site` and inject a DOM failure from the header controls
+2. Run the scraper again — validation should fail
+3. Trigger heal — Metanoia calls Bright Data, updates selectors, re-runs, and validates
+
+### 3. AI job search
+
+1. Open **Agent**
+2. Type a plain-English query (role, location, company type)
+3. Get results split into **company career pages** and **job boards**
 
 ---
 
@@ -276,6 +297,18 @@ The Next.js app is in `apps/web`. **You must set the Root Directory in Vercel** 
 5. **Redeploy** from the Deployments tab
 
 Live URL: [metanoia-brown-xi.vercel.app](https://metanoia-brown-xi.vercel.app)
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| Vercel shows **404** | Set **Root Directory** to `apps/web` in Vercel project settings |
+| Build fails on `schema-init` | Pull latest `main` — import paths are fixed |
+| Dashboard shows empty stats | Run `curl -X POST http://localhost:3000/api/setup` and verify `DATABASE_URL` |
+| Agent returns no jobs | Check `GEMINI_API_KEY` and `BRIGHTDATA_API_KEY` in `.env` |
+| Landing page jumps to bottom | Fixed in latest — hard-refresh if you still see it |
 
 ---
 
