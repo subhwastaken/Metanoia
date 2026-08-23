@@ -14,7 +14,8 @@ export default function SaasLandingPage() {
   const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (simLogs.length === 0) return;
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [simLogs]);
 
   useEffect(() => {
