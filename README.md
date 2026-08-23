@@ -261,14 +261,19 @@ Secrets: `BRIGHTDATA_API_KEY`, `BRIGHTDATA_CUSTOMER_ID`, `MOCK_BRIGHTDATA`
 
 ## Deploy on Vercel
 
-The Next.js app lives in `apps/web`. Vercel must build from that directory.
+The Next.js app is in `apps/web`. **You must set the Root Directory in Vercel** or every deploy will 404.
 
-1. Import [github.com/subhwastaken/Metanoia](https://github.com/subhwastaken/Metanoia) on Vercel
-2. Set **Root Directory** → `apps/web`
-3. Add environment variables (`DATABASE_URL`, `BRIGHTDATA_API_KEY`, `GEMINI_API_KEY`, etc.)
-4. Deploy
+### Steps
 
-Root `vercel.json` also points the builder at `apps/web/package.json` for monorepo support.
+1. Open your [Vercel project settings](https://vercel.com/dashboard)
+2. Go to **Settings → General → Root Directory**
+3. Click **Edit** → set to `apps/web` → **Save**
+4. Under **Environment Variables**, add:
+   - `DATABASE_URL`
+   - `BRIGHTDATA_API_KEY`
+   - `BRIGHTDATA_SERP_ZONE`
+   - `GEMINI_API_KEY`
+5. **Redeploy** from the Deployments tab
 
 Live URL: [metanoia-brown-xi.vercel.app](https://metanoia-brown-xi.vercel.app)
 
