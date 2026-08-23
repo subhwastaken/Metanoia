@@ -58,11 +58,11 @@ flowchart TB
     end
 
     subgraph API["API Routes"]
-        STATS[/dashboard/stats]
-        SCR[/scrapers]
-        RUN[/scrapers/run]
-        HEAL[/scrapers/heal]
-        SEARCH[/agent/search]
+        STATS["GET dashboard stats"]
+        SCR["GET POST scrapers"]
+        RUN["POST scrapers run"]
+        HEAL["POST scrapers heal"]
+        SEARCH["POST agent search"]
     end
 
     subgraph Core["Core Services"]
@@ -256,6 +256,21 @@ flowchart LR
 ```
 
 Secrets: `BRIGHTDATA_API_KEY`, `BRIGHTDATA_CUSTOMER_ID`, `MOCK_BRIGHTDATA`
+
+---
+
+## Deploy on Vercel
+
+The Next.js app lives in `apps/web`. Vercel must build from that directory.
+
+1. Import [github.com/subhwastaken/Metanoia](https://github.com/subhwastaken/Metanoia) on Vercel
+2. Set **Root Directory** → `apps/web`
+3. Add environment variables (`DATABASE_URL`, `BRIGHTDATA_API_KEY`, `GEMINI_API_KEY`, etc.)
+4. Deploy
+
+Root `vercel.json` also points the builder at `apps/web/package.json` for monorepo support.
+
+Live URL: [metanoia-brown-xi.vercel.app](https://metanoia-brown-xi.vercel.app)
 
 ---
 
