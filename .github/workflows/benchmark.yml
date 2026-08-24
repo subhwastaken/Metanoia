@@ -1,0 +1,61 @@
+name: ScrapeGuard — Self-Healing Benchmark Suite
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    name: Run Failure Simulation Benchmark
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run local server and benchmark
+        env:
+          MOCK_BRIGHTDATA: 'true'
+        run: |
+          # Start FastAPI server in background
+          python apps/api/main.py &
+          # Give it a few seconds to boot up and initialize database tables
+          sleep 5
+          # Trigger the full benchmark via python script or pytest
+          python -c "import urllib.request; import json; res = urllib.request.urlopen('http://127.0.0.1:8000/api/benchmark/trigger', data=b''); print(res.read().decode())"
+          
+          # Wait and poll for results
+          for i in {1..30}; do
+            sleep 2
+            results_json=$(python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/api/benchmark/results').read().decode())")
+            total=$(python -c "import json; data=json.loads('''$results_json'''); print(len(data['results']))")
+            if [ "$total" -eq 7 ]; then
+              echo "Benchmark complete! Results scorecard:"
+              python -c "import json; data=json.loads('''$results_json'''); print(json.dumps(data['summary'], indent=2))"
+              # Verify recovery rate is 100%
+              recovery_rate=$(python -c "import json; data=json.loads('''$results_json'''); print(data['summary']['recovery_rate'])")
+              if (( $(echo "$recovery_rate == 100.0" | bc -l) )); then
+                echo "All scenarios recovered successfully!"
+                exit 0
+              else
+                echo "Failures occurred in recovery rate: $recovery_rate%"
+                exit 1
+              fi
+            fi
+            echo "Waiting for benchmark runs ($total/7 complete)..."
+          done
+          echo "Timeout waiting for benchmark execution to finish."
+          exit 1
