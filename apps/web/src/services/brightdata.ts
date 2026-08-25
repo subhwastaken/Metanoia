@@ -1,7 +1,12 @@
 import crypto from 'crypto';
 import { db } from '../db';
-import { scrapers } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { scrapers, selectorVersions } from '../db/schema';
+import { eq, desc } from 'drizzle-orm';
+import {
+  fetchSandboxRecords,
+  getTemplateForUrl,
+  mapRecordsToSchema,
+} from './sandboxScraper';
 
 // Persist the simulator's selector state across hot reloads in development
 const globalForSelectors = global as unknown as {
@@ -28,6 +33,15 @@ export class BrightDataService {
     return !apiKey || mockEnv === 'true';
   }
 
+  /** Auto-generated IDs (c_xxxxxxxx) are local-only — not real Bright Data collectors. */
+  static isLocalCollector(collectorId: string): boolean {
+    return !collectorId || /^c_[0-9a-f]{8}$/i.test(collectorId);
+  }
+
+  static shouldSimulate(collectorId: string): boolean {
+    return this.isMockMode() || this.isLocalCollector(collectorId);
+  }
+
   static async computePageHash(url: string): Promise<string | null> {
     try {
       let fetchUrl = url;
@@ -35,10 +49,18 @@ export class BrightDataService {
         fetchUrl = `${this.getBaseUrl()}/api/demo/catalog-raw`;
       }
       
-      const res = await fetch(fetchUrl, { next: { revalidate: 0 } });
-      if (res.status === 200) {
-        const text = await res.text();
-        return crypto.createHash('sha256').update(text).digest('hex');
+      try {
+        const res = await fetch(fetchUrl, { next: { revalidate: 0 } });
+        if (res.status === 200) {
+          const text = await res.text();
+          return crypto.createHash('sha256').update(text).digest('hex');
+        }
+      } catch (fetchErr) {
+        if (this.isMockMode()) {
+          // Local server is offline (e.g. during cold start/build), fallback to stable hash of URL
+          return crypto.createHash('sha256').update(url).digest('hex');
+        }
+        throw fetchErr;
       }
     } catch (e) {
       console.error('Error computing page hash:', e);
@@ -97,7 +119,7 @@ export class BrightDataService {
 
     // 2. Cache Miss: Execute run
     let res: { status: string; records: any[]; error: string | null };
-    if (this.isMockMode()) {
+    if (this.shouldSimulate(collectorId)) {
       res = await this._runSimulatedCollector(collectorId, targetUrl, schema, scraperId);
     } else {
       res = await this._runRealCollector(collectorId, targetUrl);
@@ -197,13 +219,33 @@ export class BrightDataService {
     const key = scraperId || collectorId || 'default';
 
     if (!SIMULATED_SELECTORS[key]) {
-      SIMULATED_SELECTORS[key] = {
-        product_name: '.product-title',
-        price: '.product-price',
-        currency: '.product-currency',
-        availability: '.product-stock',
-        product_url: '.product-link',
-      };
+      // Try to load latest selectors from DB
+      let dbSelectors: Record<string, string> | null = null;
+      if (scraperId) {
+        try {
+          const latestVersion = await db.select()
+            .from(selectorVersions)
+            .where(eq(selectorVersions.scraperId, scraperId))
+            .orderBy(desc(selectorVersions.version))
+            .limit(1);
+          if (latestVersion.length > 0) {
+            dbSelectors = latestVersion[0].selectors as Record<string, string>;
+          }
+        } catch (dbErr) {
+          console.error('Failed to load selectors from DB:', dbErr);
+        }
+      }
+
+      if (dbSelectors) {
+        SIMULATED_SELECTORS[key] = dbSelectors;
+      } else {
+        const template = getTemplateForUrl(targetUrl);
+        const sels: Record<string, string> = {};
+        for (const field of Object.keys(schema)) {
+          sels[field] = template?.selectors[field] ?? `.${field}`;
+        }
+        SIMULATED_SELECTORS[key] = sels;
+      }
     }
 
     const selectors = SIMULATED_SELECTORS[key];
@@ -252,18 +294,40 @@ export class BrightDataService {
         }
       }
 
-      // Static fallback if not hitting local demo
+      // Public sandbox sites (quotes.toscrape.com, books.toscrape.com)
+      const sandboxRecords = await fetchSandboxRecords(targetUrl);
+      if (sandboxRecords && sandboxRecords.length > 0) {
+        return {
+          status: 'SUCCESS',
+          records: mapRecordsToSchema(sandboxRecords, schema),
+          error: null,
+        };
+      }
+
+      // Static fallback if not hitting local demo or known sandbox
       const staticRecords = [
         { product_name: 'Premium Keyboard', price: 129.99, currency: 'USD', availability: 'In Stock', product_url: 'https://example.com/item/1' },
         { product_name: 'Wireless Mouse', price: 49.99, currency: 'USD', availability: 'In Stock', product_url: 'https://example.com/item/2' },
         { product_name: 'USB-C Hub', price: 35.00, currency: 'USD', availability: 'Low Stock', product_url: 'https://example.com/item/3' },
       ];
 
-      const filtered = staticRecords.map((item: any) => {
+      const filtered = staticRecords.map((item: any, idx: number) => {
         const record: Record<string, any> = {};
-        for (const field of Object.keys(schema)) {
+        for (const [field, expectedType] of Object.entries(schema)) {
           if (selectors[field] && !selectors[field].startsWith('.broken')) {
-            record[field] = item[field];
+            let val = item[field];
+            if (val === undefined) {
+              if (expectedType === 'number') {
+                val = 9.99 + idx * 5;
+              } else if (expectedType === 'url') {
+                val = `https://example.com/mock-item/${idx + 1}`;
+              } else if (expectedType === 'boolean') {
+                val = true;
+              } else {
+                val = `Mock ${field} ${idx + 1}`;
+              }
+            }
+            record[field] = val;
           } else {
             record[field] = null;
           }
@@ -295,7 +359,7 @@ export class BrightDataService {
     error: string | null;
     logs: string;
   }> {
-    if (this.isMockMode()) {
+    if (this.shouldSimulate(collectorId)) {
       return this._healSimulatedCollector(collectorId, failureDescription, scraperId);
     }
     return this._healRealCollector(collectorId, failureDescription);
@@ -345,6 +409,23 @@ export class BrightDataService {
     console.log(`Running simulated AI healing for ${key}. Diagnostics:`, failureDescription);
 
     try {
+      let targetUrl = '';
+      if (scraperId) {
+        const found = await db.select().from(scrapers).where(eq(scrapers.id, scraperId)).limit(1);
+        targetUrl = found[0]?.targetUrl || '';
+      }
+
+      const template = targetUrl ? getTemplateForUrl(targetUrl) : undefined;
+      if (template && template.id !== 'demo-site') {
+        SIMULATED_SELECTORS[key] = { ...template.selectors };
+        return {
+          status: 'SUCCESS',
+          error: null,
+          logs: `AI Healing Agent restored sandbox selectors for ${template.label}.\n` +
+            Object.entries(template.selectors).map(([field, sel]) => `- ${field}: ${sel}`).join('\n'),
+        };
+      }
+
       const fetchUrl = `${this.getBaseUrl()}/api/demo/catalog-raw`;
       const res = await fetch(fetchUrl, { next: { revalidate: 0 } });
       if (res.status !== 200) {
@@ -396,15 +477,21 @@ export class BrightDataService {
     }
   }
 
-  static resetSelectors(scraperId?: string, collectorId?: string) {
+  static resetSelectors(scraperId?: string, collectorId?: string, targetUrl?: string) {
     const key = scraperId || collectorId || 'default';
-    SIMULATED_SELECTORS[key] = {
+    const template = targetUrl ? getTemplateForUrl(targetUrl) : undefined;
+    SIMULATED_SELECTORS[key] = template?.selectors ?? {
       product_name: '.product-title',
       price: '.product-price',
       currency: '.product-currency',
       availability: '.product-stock',
       product_url: '.product-link',
     };
+  }
+
+  static initSelectorsForScraper(scraperId: string, targetUrl: string) {
+    this.resetSelectors(scraperId, undefined, targetUrl);
+    return this.getSelectors(scraperId);
   }
 
   static getSelectors(scraperId?: string, collectorId?: string): Record<string, string> {

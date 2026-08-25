@@ -210,14 +210,7 @@ def cls_render_catalog_html() -> str:
         </div>
         <button onclick="resetDemo()" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-semibold transition">Reset Site Layout</button>
     </div>
-    """ if status != "NORMAL" else f"""
-    <div class="mb-6 p-4 rounded-lg bg-emerald-50 border border-emerald-200 flex justify-between items-center">
-        <div>
-            <h4 class="font-bold text-emerald-800">Demo Site: Healthy Layout</h4>
-            <p class="text-sm text-emerald-600">All DOM selectors and fields match the standard production schema contract.</p>
-        </div>
-    </div>
-    """
+    """ if status != "NORMAL" else ""
 
     return f"""
     <!DOCTYPE html>

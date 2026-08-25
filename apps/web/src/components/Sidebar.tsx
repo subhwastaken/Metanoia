@@ -54,17 +54,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="p-3 border-t border-white/[0.06]">
-        <a
-          href="/demo-site"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03] transition"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          Demo target site
-        </a>
-      </div>
     </aside>
   );
 }

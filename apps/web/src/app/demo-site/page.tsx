@@ -63,7 +63,7 @@ export default function DemoSitePage() {
       </nav>
 
       <main className="max-w-6xl mx-auto py-8 px-4">
-        {status !== 'NORMAL' ? (
+        {status !== 'NORMAL' && (
           <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 flex justify-between items-center">
             <div>
               <h4 className="font-bold text-red-800">Demo Failure Active: {status}</h4>
@@ -75,11 +75,6 @@ export default function DemoSitePage() {
             >
               Reset Site Layout
             </button>
-          </div>
-        ) : (
-          <div className="mb-6 p-4 rounded-lg bg-emerald-50 border border-emerald-200">
-            <h4 className="font-bold text-emerald-800">Demo Site: Healthy Layout</h4>
-            <p className="text-sm text-emerald-600">All DOM selectors and fields match the standard production schema contract.</p>
           </div>
         )}
 

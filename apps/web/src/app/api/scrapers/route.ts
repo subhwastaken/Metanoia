@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   try {
     await ensureSchema();
     const body = await req.json();
-    const { name, description, target_url, schema_definition, schedule } = body;
+    const { name, description, target_url, schema_definition, schedule, collector_id } = body;
 
     if (!name || !target_url || !schema_definition) {
       return NextResponse.json({ error: 'Missing required fields (name, target_url, schema_definition)' }, { status: 400 });
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       name,
       description: description || '',
       targetUrl: target_url,
-      collectorId: `c_${scraperId.slice(0, 8)}`,
+      collectorId: collector_id?.trim() || `c_${scraperId.slice(0, 8)}`,
       schedule: schedule || '0 0 * * *',
       status: 'HEALTHY',
       schemaDefinition: schema_definition,
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
 
     await db.insert(scrapers).values(newScraper);
 
-    BrightDataService.resetSelectors(scraperId);
+    BrightDataService.initSelectorsForScraper(scraperId, target_url);
     const defaultSelectors = BrightDataService.getSelectors(scraperId);
 
     await db.insert(selectorVersions).values({

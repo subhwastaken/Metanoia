@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   ArrowLeft, Play, Wrench, RefreshCw, CheckCircle2, XCircle, 
-  Clock, Database, Tag, FileJson, ShieldAlert, Check, Calendar, ChevronRight 
+  Clock, Database, Tag, FileJson, ShieldAlert, Check, Calendar, ChevronRight, Pause, Trash2 
 } from 'lucide-react';
 
 const API_BASE = '';
@@ -55,6 +55,10 @@ export default function ScraperDetailPage() {
   const [overrideMessage, setOverrideMessage] = useState<string | null>(null);
   const [overrideSuccess, setOverrideSuccess] = useState<boolean | null>(null);
 
+  const [latestRunData, setLatestRunData] = useState<any[] | null>(null);
+  const [loadingLatestData, setLoadingLatestData] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+
   const fetchScraperDetails = async () => {
     try {
       const sRes = await fetch(`${API_BASE}/api/scrapers/${scraperId}`);
@@ -88,19 +92,62 @@ export default function ScraperDetailPage() {
     fetchScraperDetails();
   }, [scraperId]);
 
-  // Dynamic Polling: Check status every 2 seconds if there is a running/healing job
+  // Dynamic Polling: Check status every 2 seconds if there is a running/healing job, or if we just triggered one
   useEffect(() => {
-    const hasActiveJobs = runs.some(r => r.status === 'RUNNING') || scraper?.status === 'HEALING';
+    const hasActiveJobs = runs.some(r => r.status === 'RUNNING') || scraper?.status === 'HEALING' || isPolling;
     
     if (hasActiveJobs) {
-      const interval = setInterval(fetchScraperDetails, 2000);
+      const interval = setInterval(async () => {
+        await fetchScraperDetails();
+        if (isPolling) {
+          try {
+            const sRes = await fetch(`${API_BASE}/api/scrapers/${scraperId}/runs`);
+            if (sRes.ok) {
+              const latestRuns = await sRes.json();
+              const anyRunning = latestRuns.some((r: any) => r.status === 'RUNNING');
+              if (!anyRunning && latestRuns.length > 0) {
+                setIsPolling(false);
+              }
+            }
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      }, 2000);
       return () => clearInterval(interval);
     }
-  }, [runs, scraper]);
+  }, [runs, scraper, isPolling, scraperId]);
+
+  // Fetch data of the latest run dynamically
+  useEffect(() => {
+    const fetchLatestRunData = async () => {
+      if (runs.length > 0) {
+        const latestRun = runs[0];
+        setLoadingLatestData(true);
+        try {
+          const res = await fetch(`${API_BASE}/api/runs/${latestRun.id}/data`);
+          if (res.ok) {
+            setLatestRunData(await res.json());
+          } else {
+            setLatestRunData(null);
+          }
+        } catch (e) {
+          console.error(e);
+          setLatestRunData(null);
+        } finally {
+          setLoadingLatestData(false);
+        }
+      } else {
+        setLatestRunData(null);
+      }
+    };
+    fetchLatestRunData();
+  }, [runs]);
 
   const handleRunCollector = async () => {
     setActionLoading(true);
     setMessage('Triggering Bright Data collector run...');
+    setIsPolling(true);
     try {
       const res = await fetch(`${API_BASE}/api/scrapers/${scraperId}/run`, { method: 'POST' });
       if (res.ok) {
@@ -109,6 +156,7 @@ export default function ScraperDetailPage() {
       }
     } catch (e) {
       setMessage('Failed to trigger scraper run.');
+      setIsPolling(false);
     } finally {
       setActionLoading(false);
       setTimeout(() => setMessage(null), 5000);
@@ -118,6 +166,7 @@ export default function ScraperDetailPage() {
   const handleHealScraper = async () => {
     setActionLoading(true);
     setMessage('Initiating self-healing protocol...');
+    setIsPolling(true);
     try {
       const res = await fetch(`${API_BASE}/api/scrapers/${scraperId}/heal`, { method: 'POST' });
       const data = await res.json();
@@ -126,12 +175,63 @@ export default function ScraperDetailPage() {
         fetchScraperDetails();
       } else {
         setMessage(`Healing error: ${data.detail || 'Could not trigger self-healing'}`);
+        setIsPolling(false);
       }
     } catch (e) {
       setMessage('Failed to trigger healing.');
+      setIsPolling(false);
     } finally {
       setActionLoading(false);
       setTimeout(() => setMessage(null), 5000);
+    }
+  };
+
+  const handlePauseToggle = async () => {
+    if (!scraper) return;
+    const isPaused = scraper.status === 'PAUSED';
+    const nextStatus = isPaused ? 'HEALTHY' : 'PAUSED';
+    setActionLoading(true);
+    setMessage(isPaused ? 'Resuming scraper scheduler...' : 'Pausing scraper scheduler...');
+    try {
+      const res = await fetch(`${API_BASE}/api/scrapers/${scraperId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (res.ok) {
+        setMessage(isPaused ? 'Scraper scheduler resumed.' : 'Scraper scheduler paused.');
+        fetchScraperDetails();
+      } else {
+        setMessage('Failed to update scraper status.');
+      }
+    } catch (e) {
+      setMessage('Failed to update status.');
+    } finally {
+      setActionLoading(false);
+      setTimeout(() => setMessage(null), 5000);
+    }
+  };
+
+  const handleDeleteScraper = async () => {
+    if (!scraper) return;
+    const confirmed = window.confirm(`Are you sure you want to delete "${scraper.name}"? This will delete all its runs and healing history.`);
+    if (!confirmed) return;
+
+    setActionLoading(true);
+    setMessage('Deleting scraper...');
+    try {
+      const res = await fetch(`${API_BASE}/api/scrapers/${scraperId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        router.push('/scrapers');
+      } else {
+        setMessage('Failed to delete scraper.');
+        setActionLoading(false);
+      }
+    } catch (e) {
+      setMessage('Failed to delete scraper.');
+      setActionLoading(false);
     }
   };
 
@@ -222,8 +322,15 @@ export default function ScraperDetailPage() {
               <a href={scraper.target_url} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline truncate block max-w-[200px]">{scraper.target_url}</a>
             </div>
             <div>
-              <span className="text-[10px] text-gray-500 block uppercase font-bold tracking-wider mb-1">Cron Schedule</span>
-              <span className="text-slate-200">{scraper.schedule}</span>
+              <span className="text-[10px] text-gray-500 block uppercase font-bold tracking-wider mb-1">Schedule</span>
+              <span className="text-slate-200">
+                {scraper.schedule === '0 */1 * * *' ? 'Every 1 hour' :
+                 scraper.schedule === '0 */2 * * *' ? 'Every 2 hours' :
+                 scraper.schedule === '0 */6 * * *' ? 'Every 6 hours' :
+                 scraper.schedule === '0 */12 * * *' ? 'Every 12 hours' :
+                 scraper.schedule === '0 0 * * *' ? 'Every day (24 hours)' :
+                 scraper.schedule}
+              </span>
             </div>
             <div>
               <span className="text-[10px] text-gray-500 block uppercase font-bold tracking-wider mb-1">Active Version</span>
@@ -233,17 +340,36 @@ export default function ScraperDetailPage() {
         </div>
 
         <div className="flex flex-row lg:flex-col justify-end items-end gap-3 flex-shrink-0 border-t lg:border-t-0 border-gray-900 pt-4 lg:pt-0">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 w-full lg:w-auto">
             <button
               onClick={handleRunCollector}
-              disabled={actionLoading || scraper.status === 'HEALING'}
+              disabled={actionLoading || scraper.status === 'HEALING' || scraper.status === 'PAUSED'}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-semibold transition"
             >
               <Play className="h-3.5 w-3.5" /> Trigger Run
             </button>
             <button
+              onClick={handlePauseToggle}
+              disabled={actionLoading || scraper.status === 'HEALING'}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold border transition ${
+                scraper.status === 'PAUSED'
+                  ? 'bg-emerald-950/20 hover:bg-emerald-900/30 text-emerald-400 border-emerald-500/20'
+                  : 'bg-amber-950/10 hover:bg-amber-900/20 text-amber-400 border-amber-500/20'
+              }`}
+            >
+              {scraper.status === 'PAUSED' ? (
+                <>
+                  <Play className="h-3.5 w-3.5" /> Resume
+                </>
+              ) : (
+                <>
+                  <Pause className="h-3.5 w-3.5" /> Pause
+                </>
+              )}
+            </button>
+            <button
               onClick={handleHealScraper}
-              disabled={actionLoading || scraper.status === 'HEALTHY' || scraper.status === 'HEALING'}
+              disabled={actionLoading || scraper.status === 'HEALTHY' || scraper.status === 'HEALING' || scraper.status === 'PAUSED'}
               className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-semibold border border-purple-500/20 transition"
             >
               <Wrench className="h-3.5 w-3.5" /> Force Heal
@@ -257,6 +383,13 @@ export default function ScraperDetailPage() {
               className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-300 px-4 py-2 rounded-lg text-xs font-semibold transition"
             >
               <Wrench className="h-3.5 w-3.5 text-gray-400" /> Override Selectors
+            </button>
+            <button
+              onClick={handleDeleteScraper}
+              disabled={actionLoading}
+              className="flex items-center gap-2 bg-red-950/30 hover:bg-red-900/40 border border-red-500/20 text-red-400 px-4 py-2 rounded-lg text-xs font-semibold transition ml-auto"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete Scraper
             </button>
           </div>
           <Link
@@ -421,6 +554,32 @@ export default function ScraperDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Latest Scraped Output Preview */}
+      {runs.length > 0 && (
+        <div className="bg-gray-950 border border-gray-800 rounded-xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <FileJson className="h-4 w-4 text-emerald-400" />
+            Latest Scraped Output (Run #{runs[0].id.substring(0, 8)})
+          </h2>
+          {loadingLatestData ? (
+            <div className="flex items-center justify-center py-8 gap-2 text-xs text-gray-500 font-mono">
+              <RefreshCw className="h-4 w-4 animate-spin text-indigo-500" />
+              Loading latest scraped output...
+            </div>
+          ) : latestRunData && latestRunData.length > 0 ? (
+            <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 overflow-x-auto max-h-96">
+              <pre className="text-xs font-mono text-emerald-300">
+                {JSON.stringify(latestRunData, null, 2)}
+              </pre>
+            </div>
+          ) : (
+            <div className="text-xs font-mono text-gray-500 bg-gray-900/30 border border-gray-900 rounded-lg p-4">
+              // No records returned or failed to load data for this run.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Selector Version History */}
       <div className="bg-gray-950 border border-gray-800 rounded-xl p-6 space-y-4">

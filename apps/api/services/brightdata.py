@@ -31,12 +31,17 @@ class BrightDataService:
             if cls.is_mock_mode():
                 # In simulation mode, fetch the local catalog mock raw endpoint
                 local_url = "http://127.0.0.1:8000/api/demo/catalog-raw"
-                response = httpx.get(local_url, timeout=5.0)
+                try:
+                    response = httpx.get(local_url, timeout=5.0)
+                    if response.status_code == 200:
+                        return hashlib.sha256(response.content).hexdigest()
+                except Exception:
+                    # Local server is offline (e.g. during test run), fallback to stable hash of the URL
+                    return hashlib.sha256(url.encode('utf-8')).hexdigest()
             else:
                 response = httpx.get(url, timeout=10.0, follow_redirects=True)
-            
-            if response.status_code == 200:
-                return hashlib.sha256(response.content).hexdigest()
+                if response.status_code == 200:
+                    return hashlib.sha256(response.content).hexdigest()
         except Exception as e:
             logger.error(f"Error computing page hash: {str(e)}")
         return None
@@ -88,7 +93,7 @@ class BrightDataService:
 
         # 2. Cache Miss: Execute run
         if cls.is_mock_mode():
-            res = cls._run_simulated_collector(collector_id, target_url, schema, scraper_id)
+            res = cls._run_simulated_collector(collector_id, target_url, schema, scraper_id, db=db)
         else:
             res = cls._run_real_collector(collector_id, target_url)
 
@@ -238,7 +243,8 @@ class BrightDataService:
         collector_id: str,
         target_url: str,
         schema: Dict[str, str],
-        scraper_id: str = None
+        scraper_id: str = None,
+        db = None
     ) -> Dict[str, Any]:
         """
         Simulated scraper run. Fetches the page content (from our local mock catalog)
@@ -248,13 +254,28 @@ class BrightDataService:
         
         # Initialize default selectors if not set
         if key not in SIMULATED_SELECTORS:
-            SIMULATED_SELECTORS[key] = {
-                "product_name": ".product-title",
-                "price": ".product-price",
-                "currency": ".product-currency",
-                "availability": ".product-stock",
-                "product_url": ".product-link"
-            }
+            # Try to load latest selectors from database
+            if db and scraper_id:
+                try:
+                    from database.models import SelectorVersion
+                    latest_sv = db.query(SelectorVersion).filter(
+                        SelectorVersion.scraper_id == scraper_id
+                    ).order_by(SelectorVersion.version.desc()).first()
+                    if latest_sv:
+                        SIMULATED_SELECTORS[key] = latest_sv.selectors
+                except Exception as e:
+                    logger.error(f"Failed to load selectors from DB: {e}")
+
+            if key not in SIMULATED_SELECTORS:
+                sels = {}
+                for field in schema:
+                    if field == "product_name": sels[field] = ".product-title"
+                    elif field == "price": sels[field] = ".product-price"
+                    elif field == "currency": sels[field] = ".product-currency"
+                    elif field == "availability": sels[field] = ".product-stock"
+                    elif field == "product_url": sels[field] = ".product-link"
+                    else: sels[field] = f".{field}"
+                SIMULATED_SELECTORS[key] = sels
 
         selectors = SIMULATED_SELECTORS[key]
         logger.info(f"Running simulated scraper run for {key} with selectors: {selectors}")
@@ -321,12 +342,23 @@ class BrightDataService:
             
             # Filter through simulated selectors
             filtered = []
-            for item in static_records:
+            for idx, item in enumerate(static_records):
                 record = {}
                 for field in schema:
                     # If selector is present, assume it extracts it. Otherwise it is null
                     if field in selectors and not selectors[field].startswith(".broken"):
-                        record[field] = item.get(field)
+                        val = item.get(field)
+                        if val is None:
+                            expected_type = schema[field]
+                            if expected_type == "number":
+                                val = 9.99 + idx * 5.0
+                            elif expected_type == "url":
+                                val = f"https://example.com/mock-item/{idx + 1}"
+                            elif expected_type == "boolean":
+                                val = True
+                            else:
+                                val = f"Mock {field} {idx + 1}"
+                        record[field] = val
                     else:
                         record[field] = None
                 filtered.append(record)

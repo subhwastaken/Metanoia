@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Plus, RefreshCw, Globe, Server, ChevronRight, X,
-  Database, CheckCircle2, AlertCircle, Wrench,
+  Database, CheckCircle2, AlertCircle, Wrench, Pause, Play, Trash2
 } from 'lucide-react';
+import { SCRAPER_TEMPLATES } from '@/services/sandboxScraper';
 
 interface Scraper {
   id: string;
@@ -26,6 +27,7 @@ const STATUS: Record<string, string> = {
   FAILING: 'bg-red-500/10 text-red-400 border-red-500/20',
   HEALING: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
   ESCALATED: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  PAUSED: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
 };
 
 const DEFAULT_SCHEMA = [
@@ -68,6 +70,14 @@ export default function ScrapersPage() {
   };
 
   useEffect(() => { fetchScrapers(); }, []);
+
+  const applyTemplate = (templateId: string) => {
+    const template = SCRAPER_TEMPLATES.find((t) => t.id === templateId);
+    if (!template) return;
+    setTargetUrl(template.targetUrl);
+    setSchemaFields(template.schema);
+    if (!name) setName(template.label);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,6 +145,25 @@ export default function ScrapersPage() {
         <form onSubmit={handleSubmit} className="saas-card p-6 space-y-6">
           <h2 className="text-[15px] font-semibold text-white">New collector</h2>
 
+          <div>
+            <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Quick template</label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {SCRAPER_TEMPLATES.filter(t => t.id !== 'demo-site').map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => applyTemplate(t.id)}
+                  className="px-3 py-1.5 rounded-lg text-[12px] border border-white/[0.08] text-zinc-400 hover:text-white hover:border-emerald-500/30 hover:bg-emerald-500/5 transition"
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-zinc-600 mt-2">
+              Local collectors (c_xxxxx) run in sandbox mode — no Bright Data collector required unless you paste a real ID.
+            </p>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Name</label>
@@ -168,11 +197,17 @@ export default function ScrapersPage() {
               />
             </div>
             <div>
-              <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Cron schedule</label>
-              <input
+              <label className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Run Schedule</label>
+              <select
                 value={schedule} onChange={(e) => setSchedule(e.target.value)}
-                className="mt-1.5 w-full bg-[#0a0a0c] border border-white/[0.08] rounded-lg px-3 py-2 text-[13px] text-zinc-200 font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
-              />
+                className="mt-1.5 w-full bg-[#0a0a0c] border border-white/[0.08] rounded-lg px-3 py-2.5 text-[13px] text-zinc-200 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%23a1a1aa%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.5rem_center] bg-no-repeat pr-8"
+              >
+                <option value="0 */1 * * *">Every 1 hour</option>
+                <option value="0 */2 * * *">Every 2 hours</option>
+                <option value="0 */6 * * *">Every 6 hours</option>
+                <option value="0 */12 * * *">Every 12 hours</option>
+                <option value="0 0 * * *">Every day (24 hours)</option>
+              </select>
             </div>
             <div className="flex items-end">
               <label className="flex items-center gap-2 text-[13px] text-zinc-400 cursor-pointer">
@@ -200,7 +235,7 @@ export default function ScrapersPage() {
                   <select
                     value={field.type}
                     onChange={(e) => { const u = [...schemaFields]; u[i].type = e.target.value; setSchemaFields(u); }}
-                    className="bg-[#0a0a0c] border border-white/[0.08] rounded-lg px-3 py-2 text-[12px] text-zinc-400 focus:outline-none"
+                    className="bg-[#0a0a0c] border border-white/[0.08] rounded-lg px-3 py-2 text-[12px] text-zinc-400 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M7%209l3%203%203-3%22%20stroke%3D%22%23a1a1aa%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem_1.25rem] bg-[right_0.5rem_center] bg-no-repeat pr-8 min-w-[90px]"
                   >
                     <option value="string">string</option>
                     <option value="number">number</option>
@@ -251,10 +286,12 @@ export default function ScrapersPage() {
               >
                 <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
                   scraper.status === 'HEALTHY' ? 'bg-emerald-500/10' :
-                  scraper.status === 'HEALING' ? 'bg-violet-500/10' : 'bg-red-500/10'
+                  scraper.status === 'HEALING' ? 'bg-violet-500/10' :
+                  scraper.status === 'PAUSED' ? 'bg-zinc-500/10' : 'bg-red-500/10'
                 }`}>
                   {scraper.status === 'HEALTHY' ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> :
                    scraper.status === 'HEALING' ? <Wrench className="h-4 w-4 text-violet-400" /> :
+                   scraper.status === 'PAUSED' ? <Pause className="h-4 w-4 text-zinc-400" /> :
                    <AlertCircle className="h-4 w-4 text-red-400" />}
                 </div>
 
@@ -278,6 +315,60 @@ export default function ScrapersPage() {
                   <div className="text-[11px] text-zinc-600">Success rate</div>
                   <div className="text-[14px] font-semibold text-white">{scraper.success_rate}%</div>
                   <div className="text-[10px] text-zinc-700 mt-0.5">{lastRun}</div>
+                </div>
+
+                <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                  <button
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const isPaused = scraper.status === 'PAUSED';
+                      const nextStatus = isPaused ? 'HEALTHY' : 'PAUSED';
+                      try {
+                        const res = await fetch(`/api/scrapers/${scraper.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ status: nextStatus }),
+                        });
+                        if (res.ok) {
+                          fetchScrapers();
+                        }
+                      } catch (err) {
+                        console.error('Failed to toggle pause status:', err);
+                      }
+                    }}
+                    title={scraper.status === 'PAUSED' ? 'Resume scraper' : 'Pause scraper'}
+                    className={`p-1.5 rounded-lg border transition ${
+                      scraper.status === 'PAUSED'
+                        ? 'bg-emerald-950/20 hover:bg-emerald-900/30 text-emerald-400 border-emerald-500/20'
+                        : 'bg-amber-950/10 hover:bg-amber-900/20 text-amber-400 border-amber-500/20'
+                    }`}
+                  >
+                    {scraper.status === 'PAUSED' ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                  </button>
+
+                  <button
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const confirmed = window.confirm(`Are you sure you want to delete "${scraper.name}"?`);
+                      if (!confirmed) return;
+                      try {
+                        const res = await fetch(`/api/scrapers/${scraper.id}`, {
+                          method: 'DELETE',
+                        });
+                        if (res.ok) {
+                          fetchScrapers();
+                        }
+                      } catch (err) {
+                        console.error('Failed to delete scraper:', err);
+                      }
+                    }}
+                    title="Delete scraper"
+                    className="p-1.5 rounded-lg bg-red-950/30 hover:bg-red-900/40 border border-red-500/20 text-red-400 transition"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
 
                 <ChevronRight className="h-4 w-4 text-zinc-700 group-hover:text-zinc-400 shrink-0" />
