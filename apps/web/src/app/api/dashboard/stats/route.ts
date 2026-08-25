@@ -13,36 +13,36 @@ export async function GET() {
 
     // 1. Scraper counts
     const totalScrapers = scraperList.length;
-    const healthyScrapers = scraperList.filter(s => s.status === 'HEALTHY').length;
-    const failingScrapers = scraperList.filter(s => s.status === 'FAILING').length;
-    const healingScrapers = scraperList.filter(s => s.status === 'HEALING').length;
-    const escalatedScrapers = scraperList.filter(s => s.status === 'ESCALATED').length;
+    const healthyScrapers = scraperList.filter((s: any) => s.status === 'HEALTHY').length;
+    const failingScrapers = scraperList.filter((s: any) => s.status === 'FAILING').length;
+    const healingScrapers = scraperList.filter((s: any) => s.status === 'HEALING').length;
+    const escalatedScrapers = scraperList.filter((s: any) => s.status === 'ESCALATED').length;
 
     // 2. Total runs & healing counts
     const totalRuns = runList.length;
-    const totalHealed = runList.filter(r => r.status === 'HEALED').length;
-    const totalFailed = runList.filter(r => ['FAILED', 'VALIDATION_FAILED'].includes(r.status)).length;
+    const totalHealed = runList.filter((r: any) => r.status === 'HEALED').length;
+    const totalFailed = runList.filter((r: any) => ['FAILED', 'VALIDATION_FAILED'].includes(r.status)).length;
 
     // 3. Platform success rate (Average scraper success rate)
     let avgSuccessRate = 100.0;
     if (totalScrapers > 0) {
-      const sum = scraperList.reduce((acc, s) => acc + (s.successRate || 0), 0);
+      const sum = scraperList.reduce((acc: number, s: any) => acc + (s.successRate || 0), 0);
       avgSuccessRate = parseFloat((sum / totalScrapers).toFixed(1));
     }
 
     // 4. Average recovery time (MTTR)
     let avgRecoveryTime = 0.0;
     const successfulHeals = healList.filter(
-      h => h.status === 'SUCCESS' && h.completedAt && h.startedAt
+      (h: any) => h.status === 'SUCCESS' && h.completedAt && h.startedAt
     );
 
     if (successfulHeals.length > 0) {
-      const durations = successfulHeals.map(h => {
+      const durations = successfulHeals.map((h: any) => {
         const start = new Date(h.startedAt).getTime();
         const end = new Date(h.completedAt!).getTime();
         return (end - start) / 1000;
       });
-      const sum = durations.reduce((acc, d) => acc + d, 0);
+      const sum = durations.reduce((acc: number, d: number) => acc + d, 0);
       avgRecoveryTime = parseFloat((sum / durations.length).toFixed(1));
     }
 
@@ -54,7 +54,7 @@ export async function GET() {
 
     // Map runs
     for (const r of sortedRuns) {
-      const scraper = scraperList.find(s => s.id === r.scraperId);
+      const scraper = scraperList.find((s: any) => s.id === r.scraperId);
       const name = scraper ? scraper.name : 'Unknown Scraper';
 
       const colors: Record<string, string> = {
@@ -82,7 +82,7 @@ export async function GET() {
 
     // Map heals
     for (const h of sortedHeals) {
-      const scraper = scraperList.find(s => s.id === h.scraperId);
+      const scraper = scraperList.find((s: any) => s.id === h.scraperId);
       const name = scraper ? scraper.name : 'Unknown Scraper';
 
       activity.push({
@@ -118,12 +118,12 @@ export async function GET() {
       const endOfDay = new Date(d.setHours(23, 59, 59, 999));
 
       const dayRuns = runList.filter(
-        r => r.startedAt >= startOfDay && r.startedAt <= endOfDay
+        (r: any) => r.startedAt >= startOfDay && r.startedAt <= endOfDay
       );
 
       const totalD = dayRuns.length;
-      const successD = dayRuns.filter(r => ['SUCCESS', 'HEALED'].includes(r.status)).length;
-      const recordsD = dayRuns.reduce((sum, r) => sum + r.recordsCount, 0);
+      const successD = dayRuns.filter((r: any) => ['SUCCESS', 'HEALED'].includes(r.status)).length;
+      const recordsD = dayRuns.reduce((sum: number, r: any) => sum + r.recordsCount, 0);
       const rateD = totalD > 0 ? parseFloat(((successD / totalD) * 100.0).toFixed(1)) : 100.0;
 
       chartData.push({
@@ -135,10 +135,10 @@ export async function GET() {
     }
 
     // 7. Caching and recoveries stats
-    const totalCachedRuns = runList.filter(r => r.cached).length;
-    const localVersionRecoveries = runList.filter(r => r.recoverySource === 'LOCAL_VERSION_RECOVERY').length;
-    const aiHealedRuns = runList.filter(r => r.recoverySource === 'AI_HEAL').length;
-    const manualOverrides = runList.filter(r => r.recoverySource === 'MANUAL_OVERRIDE').length;
+    const totalCachedRuns = runList.filter((r: any) => r.cached).length;
+    const localVersionRecoveries = runList.filter((r: any) => r.recoverySource === 'LOCAL_VERSION_RECOVERY').length;
+    const aiHealedRuns = runList.filter((r: any) => r.recoverySource === 'AI_HEAL').length;
+    const manualOverrides = runList.filter((r: any) => r.recoverySource === 'MANUAL_OVERRIDE').length;
 
     return NextResponse.json({
       stats: {
