@@ -14,7 +14,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from database.db import init_db
-from routes import scrapers, runs, healing, dashboard, demo, benchmark, agent
+from routes import scrapers, runs, healing, dashboard, benchmark, agent
 
 app = FastAPI(
     title="ScrapeGuard API Engine",
@@ -42,7 +42,6 @@ app.include_router(scrapers.router)
 app.include_router(runs.router)
 app.include_router(healing.router)
 app.include_router(dashboard.router)
-app.include_router(demo.router)
 app.include_router(benchmark.router)
 app.include_router(agent.router)
 
