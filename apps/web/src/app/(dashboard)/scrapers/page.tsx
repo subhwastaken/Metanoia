@@ -46,7 +46,7 @@ export default function ScrapersPage() {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [targetUrl, setTargetUrl] = useState('/demo-site');
+  const [targetUrl, setTargetUrl] = useState('');
   const [collectorId, setCollectorId] = useState('');
   const [schedule, setSchedule] = useState('0 */6 * * *');
   const [autoHeal, setAutoHeal] = useState(true);
@@ -100,7 +100,7 @@ export default function ScrapersPage() {
       });
 
       if (res.ok) {
-        setName(''); setDescription(''); setTargetUrl('/demo-site');
+        setName(''); setDescription(''); setTargetUrl('');
         setCollectorId(''); setShowAddForm(false);
         setSchemaFields(DEFAULT_SCHEMA);
         fetchScrapers();

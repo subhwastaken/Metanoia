@@ -38,7 +38,7 @@ export default function SaasLandingPage() {
   const handleRunSimulator = async () => {
     setSimStatus('running');
     setSimLogs([]);
-    await addLog('→ Running collector on /demo-site…', 300);
+    await addLog('→ Running collector on target URL…', 300);
     await addLog('→ Extracting product_name, price, availability…', 500);
 
     if (selectedFailure === 'NORMAL') {
@@ -99,9 +99,6 @@ export default function SaasLandingPage() {
             <a href="#features" className="hover:text-zinc-200 transition">Features</a>
             <a href="#simulator" className="hover:text-zinc-200 transition">Simulator</a>
             <a href="#agent" className="hover:text-zinc-200 transition">AI Agent</a>
-            <Link href="/demo-site" className="hover:text-zinc-200 transition flex items-center gap-1">
-              Demo site <ExternalLink className="h-3 w-3" />
-            </Link>
           </nav>
           <Link
             href="/dashboard"
@@ -323,7 +320,6 @@ export default function SaasLandingPage() {
           <div className="flex gap-6">
             <Link href="/dashboard" className="hover:text-zinc-400 transition">Console</Link>
             <Link href="/agent" className="hover:text-zinc-400 transition">AI Agent</Link>
-            <Link href="/demo-site" className="hover:text-zinc-400 transition">Demo site</Link>
           </div>
           <span>© 2026 Metanoia</span>
         </div>
