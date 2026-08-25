@@ -38,7 +38,7 @@ export class RunnerService {
 
       let histAvg: number | null = null;
       if (successRuns.length > 0) {
-        histAvg = successRuns.reduce((sum, r) => sum + r.recordsCount, 0) / successRuns.length;
+        histAvg = successRuns.reduce((sum: number, r: any) => sum + r.recordsCount, 0) / successRuns.length;
       }
 
       // 3. Call Bright Data

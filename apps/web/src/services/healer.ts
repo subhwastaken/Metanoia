@@ -70,7 +70,7 @@ export class HealerService {
 
     let histAvg: number | null = null;
     if (successRuns.length > 0) {
-      histAvg = successRuns.reduce((sum, r) => sum + r.recordsCount, 0) / successRuns.length;
+      histAvg = successRuns.reduce((sum: number, r: any) => sum + r.recordsCount, 0) / successRuns.length;
     }
 
     // 2. Perform failure detection
@@ -394,7 +394,7 @@ export class HealerService {
         return;
       }
 
-      const successfulRuns = runList.filter(r => ['SUCCESS', 'HEALED'].includes(r.status)).length;
+      const successfulRuns = runList.filter((r: any) => ['SUCCESS', 'HEALED'].includes(r.status)).length;
       const successRate = parseFloat(((successfulRuns / totalRuns) * 100.0).toFixed(1));
 
       await db.update(scrapers).set({ successRate }).where(eq(scrapers.id, scraperId));
