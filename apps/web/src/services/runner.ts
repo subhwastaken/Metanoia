@@ -65,6 +65,7 @@ export class RunnerService {
           duration,
           recordsCount: res.records.length,
           rawResultReference: resultFilename,
+          rawResult: res.records,
           validationStatus: { success: true, cached: true },
         }).where(eq(runs.id, runId));
 
@@ -112,6 +113,7 @@ export class RunnerService {
         duration,
         recordsCount: records.length,
         rawResultReference: resultFilename,
+        rawResult: records,
         validationStatus: valRes,
       }).where(eq(runs.id, runId));
 

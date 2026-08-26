@@ -29,6 +29,7 @@ export const runs = pgTable('runs', {
   status: text('status').notNull(), // 'RUNNING', 'SUCCESS', 'FAILED', 'VALIDATION_FAILED', 'HEALING'
   recordsCount: integer('records_count').default(0).notNull(),
   rawResultReference: text('raw_result_reference'),
+  rawResult: jsonb('raw_result'),
   validationStatus: jsonb('validation_status'),
   error: text('error'),
   cached: boolean('cached').default(false).notNull(),

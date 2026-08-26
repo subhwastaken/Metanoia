@@ -83,6 +83,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       status: 'SUCCESS',
       recordsCount: res.records.length,
       rawResultReference: `run_override_${crypto.randomUUID().slice(0, 8)}.json`,
+      rawResult: res.records,
       validationStatus: valRes,
       recoverySource: 'MANUAL_OVERRIDE',
       startedAt: now,

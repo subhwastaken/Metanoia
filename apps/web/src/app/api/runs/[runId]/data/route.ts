@@ -14,17 +14,26 @@ export async function GET(req: Request, { params }: { params: Promise<{ runId: s
       return NextResponse.json({ error: 'Run not found' }, { status: 404 });
     }
 
-    if (!run.rawResultReference) {
-      return NextResponse.json([]);
+    // 1. Primary: Return rawResult directly from database if available
+    if (run.rawResult && Array.isArray(run.rawResult) && run.rawResult.length > 0) {
+      return NextResponse.json(run.rawResult);
     }
 
-    const filepath = path.join(process.cwd(), 'storage', 'runs', run.rawResultReference);
-    if (!fs.existsSync(filepath)) {
-      return NextResponse.json([]);
+    // 2. Secondary fallback for older runs: Read from local disk file if present
+    if (run.rawResultReference) {
+      const filepath = path.join(process.cwd(), 'storage', 'runs', run.rawResultReference);
+      if (fs.existsSync(filepath)) {
+        const records = JSON.parse(fs.readFileSync(filepath, 'utf-8'));
+        return NextResponse.json(records);
+      }
     }
 
-    const records = JSON.parse(fs.readFileSync(filepath, 'utf-8'));
-    return NextResponse.json(records);
+    // Return stored rawResult if it exists (e.g. empty array or object)
+    if (run.rawResult !== undefined && run.rawResult !== null) {
+      return NextResponse.json(run.rawResult);
+    }
+
+    return NextResponse.json([]);
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

@@ -176,6 +176,7 @@ export class HealerService {
         recoverySource: 'LOCAL_VERSION_RECOVERY',
         duration,
         rawResultReference: resultFilename,
+        rawResult: testRunRes.records,
       }).where(eq(runs.id, failedRun.id));
 
       await db.update(scrapers).set({
@@ -271,6 +272,7 @@ export class HealerService {
           completedAt: now,
           duration,
           rawResultReference: resultFilename,
+          rawResult: newRecords,
         }).where(eq(runs.id, failedRun.id));
 
         const newSelectors = BrightDataService.getSelectors(scraper.id);
